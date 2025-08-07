@@ -1,0 +1,55 @@
+# =============== General ===============
+.DS_Store
+.vscode/
+.env
+**/.env
+**/.env.local
+**/.env.*.local
+backend/.env
+web-app/.env
+docs/
+
+# =============== Python / Backend ===============
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.db
+*.pyc
+*.pyo
+*.pyd
+
+# =============== Node / Web frontend ===============
+node_modules/
+.pnp/
+.pnp.js
+coverage/
+build/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+tailwind.config.js
+web-app/node_modules/
+web-app/build/
+web-app/.env
+web-app/.env.*.local
+web-app/.pnp
+web-app/.pnp.js
+web-app/coverage/
+web-app/npm-debug.log*
+web-app/yarn-debug.log*
+web-app/yarn-error.log*
+
+# =============== Android app ===============
+android-app/**/*.iml
+android-app/.gradle/
+android-app/.idea/
+android-app/**/local.properties
+android-app/**/.externalNativeBuild/
+android-app/**/build/
+android-app/**/captures/
+android-app/**/output.json
+android-app/**/.idea/*
+android-app/**/*.jks
+android-app/**/*.keystore
+android-app/**/google-services.json
+android-app/**/firebase-service.json

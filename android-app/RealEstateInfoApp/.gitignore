@@ -1,0 +1,36 @@
+# Android Studio / IntelliJ
+*.iml
+.idea/
+.gradle/
+local.properties
+.DS_Store
+
+# Build output
+/build/
+.cxx/
+.externalNativeBuild/
+captures/
+output.json
+
+# Navigation Editor
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+
+# Signing / sensitive files
+*.jks
+*.keystore
+
+# Google / Firebase
+google-services.json
+firebase-service.json
+
+# Python-style envs or keys (če uporabljaš tudi backend ali testna orodja)
+.env
+
+# VS Code
+.vscode/
+
