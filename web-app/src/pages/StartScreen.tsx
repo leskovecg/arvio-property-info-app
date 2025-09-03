@@ -1,12 +1,10 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import {
-  GoogleMap,
-  Marker,
-  useJsApiLoader,
-} from "@react-google-maps/api";
+import { GoogleMap, Marker, useJsApiLoader } from "@react-google-maps/api";
+import Steps from "../components/Steps"; // [NEW] unified stepper used on all three screens
 
+// --- Map container styling (purely UI) ---
 const containerStyle = {
   width: "100%",
   height: "300px",
@@ -14,242 +12,116 @@ const containerStyle = {
   backgroundColor: "#eee",
 };
 
+// --- Shape of an address suggestion coming from the backend ---
 interface Address {
   id: number;
   full_address: string;
   gps?: {
     lat: number;
-    lng: number;
+    lng?: number;  // some APIs use "lng"
+    lon?: number;  // some APIs use "lon" instead of "lng"
   };
 }
 
+// [NEW] Single source for backend URL (reads from CRA env, falls back to localhost).
+// All HTTP requests in this file go to the Flask backend, not directly to Arvio.
+// The backend then proxies/normalizes Arvio responses for the web app.
+const API_BASE =
+  (process.env.REACT_APP_BACKEND_URL || "http://localhost:5000") + "/api";
+
 const StartScreen: React.FC = () => {
+  // --- Local state for search box, suggestion list, and chosen address ---
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const navigate = useNavigate();
 
+  // --- Google Maps JS API key pulled from env (CRA expects REACT_APP_* prefixes) ---
   const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY!;
   console.log("[ENV] REACT_APP_GOOGLE_MAPS_API_KEY =", GOOGLE_MAPS_API_KEY);
 
+  // --- Asynchronously loads Google Maps JS library once (shared id across screens) ---
   const { isLoaded } = useJsApiLoader({
+    id: "google-map-script",
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
   });
 
-  console.log("[JS API] isLoaded =", isLoaded);
-
+  // --- Called on each keystroke; debouncing kept simple via length>2 guard ---
+  // Makes a GET to our backend: /api/search_address/<query>?web=true
+  // The backend hits Arvio's /address/search endpoint and returns normalized suggestions.
   const handleInputChange = async (value: string) => {
-    console.log("[INPUT] User typed:", value);
     setQuery(value);
     if (value.length > 2) {
       try {
         const res = await axios.get(
-          `http://localhost:5000/api/search_address/${encodeURIComponent(value)}?web=true`
+          `${API_BASE}/search_address/${encodeURIComponent(value)}?web=true` // [CHANGED] backend proxy call
         );
-        console.log("[SUGGESTIONS] Fetched from backend:", res.data);
-        setSuggestions(res.data);
+        setSuggestions(res.data); // expected to be an array of addresses with full_address + id (+optional gps)
       } catch (error) {
         console.error("[ERROR] Napaka pri iskanju naslovov:", error);
       }
     } else {
+      // Clear suggestions when query is too short
       setSuggestions([]);
     }
   };
 
-  // const handleSelect = async (address: Address) => {
-  //   console.log("[SELECT] Chosen address:", address);
-  //   setQuery(address.full_address);
-  //   setSuggestions([]);
-
-  //   try {
-  //     console.log("[GEOCODING] Sending request to Google Maps API...");
-  //     const res = await axios.get("https://maps.googleapis.com/maps/api/geocode/json", {
-  //       params: {
-  //         address: address.full_address,
-  //         key: GOOGLE_MAPS_API_KEY,
-  //       },
-  //     });
-
-  //     console.log("[GEOCODING RESPONSE]:", res.data);
-
-  //     const result = res.data.results[0];
-  //     const location = result?.geometry?.location;
-
-  //     if (location) {
-  //       const gps = {
-  //         lat: Number(location.lat),
-  //         lng: Number(location.lng),
-  //       };
-  //       console.log("[GEOCODING] Parsed GPS:", gps);
-
-  //       setSelectedAddress({
-  //         ...address,
-  //         gps,
-  //       });
-  //     } else {
-  //       console.warn("[GEOCODING] No location found for:", address.full_address);
-  //       setSelectedAddress({ ...address, gps: undefined });
-  //     }
-  //   } catch (err) {
-  //     console.error("[GEOCODING ERROR] Napaka pri geokodiranju naslova:", err);
-  //   }
-  // };
-
-  // const handleSelect = async (address: Address) => {
-  //   console.log("[SELECT] Chosen address:", address);
-  //   setQuery(address.full_address);
-  //   setSuggestions([]);
-
-  //   try {
-  //     const res = await axios.get("https://maps.googleapis.com/maps/api/geocode/json", {
-  //       params: {
-  //         address: address.full_address,
-  //         key: GOOGLE_MAPS_API_KEY,
-  //       },
-  //     });
-
-  //     console.log("[GEOCODING RESPONSE]:", res.data);
-
-  //     console.log("[GEOCODING RAW RESPONSE]:", res.data); // <-- tukaj dodaj
-
-  //     const result = res.data.results[0];
-  //     const location = result?.geometry?.location;
-
-  //     const updatedGps = location
-  //       ? { lat: Number(location.lat), lng: Number(location.lng) }
-  //       : undefined;
-
-  //     if (!updatedGps) {
-  //       console.warn("[GEOCODING] No location found for:", address.full_address);
-  //     }
-
-  //     // 📌 Shrani celoten address objekt z dopolnjenim GPS-em
-  //     setSelectedAddress({
-  //       ...address,
-  //       gps: updatedGps,
-  //     });
-
-  //     console.log("[SELECT] Final selectedAddress =", {
-  //       ...address,
-  //       gps: updatedGps,
-  //     });
-  //   } catch (err) {
-  //     console.error("[GEOCODING ERROR] Napaka pri geokodiranju naslova:", err);
-  //     setSelectedAddress(address); // fallback brez gps
-  //   }
-  // };
-
-
-  // const handleSelect = async (address: Address) => {
-  //   console.log("[DEBUG] Seznam suggestions:", suggestions);
-
-  //   console.log("[SELECT] Uporabnik je kliknil naslov:", address);
-  //   setQuery(address.full_address);
-  //   setSuggestions([]);
-
-  //   try {
-  //     const res = await axios.get("https://maps.googleapis.com/maps/api/geocode/json", {
-  //       params: {
-  //         address: address.full_address,
-  //         key: GOOGLE_MAPS_API_KEY,
-  //       },
-  //     });
-
-  //     const results = res.data.results;
-  //     if (!Array.isArray(results) || results.length === 0) {
-  //       console.warn("[GEOCODING] Ni rezultatov.");
-  //       setSelectedAddress(address);
-  //       return;
-  //     }
-
-  //     const location = results[0]?.geometry?.location;
-  //     if (!location) {
-  //       console.warn("[GEOCODING] Ni lokacije.");
-  //       setSelectedAddress(address);
-  //       return;
-  //     }
-
-  //     const gps = {
-  //       lat: Number(location.lat),
-  //       lng: Number(location.lng),
-  //     };
-
-  //     // ✅ Shrani pravi ID iz kliknjenega suggestion + dopolni GPS
-  //     setSelectedAddress({
-  //       ...address,
-  //       gps,
-  //     });
-
-  //     console.log("[SELECT] Final selectedAddress =", {
-  //       ...address,
-  //       gps,
-  //     });
-  //   } catch (err) {
-  //     console.error("[GEOCODING ERROR]", err);
-  //     setSelectedAddress(address); // fallback
-  //   }
-  // };
-
+  // --- When user clicks a suggestion: fill the input, clear the list, try to geocode it ---
+  // If Google Maps JS isn't loaded, we still keep the selected address to allow continue.
   const handleSelect = async (clicked: Address) => {
-    console.log("[SELECT] User clicked:", clicked);
     setQuery(clicked.full_address);
-    setSuggestions([]); // skrij predloge
+    setSuggestions([]);
 
-    // najdi pravi objekt iz suggestions po ID (če ni referenca ohranjena)
+    // Keep consistent object (prefer the one we have in the list if present)
     const selected = suggestions.find((s) => s.id === clicked.id) || clicked;
 
-    try {
-      const res = await axios.get("https://maps.googleapis.com/maps/api/geocode/json", {
-        params: {
-          address: selected.full_address,
-          key: GOOGLE_MAPS_API_KEY,
-        },
-      });
-
-      const result = res.data.results[0];
-      const location = result?.geometry?.location;
-
-      const gps = location
-        ? { lat: Number(location.lat), lng: Number(location.lng) }
-        : undefined;
-
-      setSelectedAddress({
-        ...selected,
-        gps, // dodamo GPS
-      });
-
-      console.log("[SELECT] Final selectedAddress =", {
-        ...selected,
-        gps,
-      });
-    } catch (err) {
-      console.error("[GEOCODING ERROR]", err);
-      setSelectedAddress(selected); // brez GPS fallback
+    // If Google Maps isn't loaded yet, store selection and bail out (no geocode).
+    if (!isLoaded || !(window as any).google) {
+      console.warn("[GEOCODER] Google Maps JS še ni naložen");
+      setSelectedAddress(selected);
+      return;
     }
+
+    // Use Google Geocoding to turn the address string into lat/lng
+    // Region "SI" helps Maps bias results for Slovenia
+    const geocoder = new (window as any).google.maps.Geocoder();
+    geocoder.geocode(
+      { address: selected.full_address, region: "SI" },
+      (results: any, status: any) => {
+        if (status === "OK" && results && results[0]) {
+          const loc = results[0].geometry.location;
+          const gps = { lat: loc.lat(), lng: loc.lng() };
+          setSelectedAddress({ ...selected, gps });
+        } else {
+          // If geocoding fails, we still keep the selected address (without GPS)
+          console.warn("[GEOCODER] Geocoding ni vrnil lokacije:", status);
+          setSelectedAddress(selected);
+        }
+      }
+    );
   };
 
-
+  // --- Continue button: navigates to Units screen (2nd step) with ?q=<full_address> ---
+  // On the next screen, the backend will search this address again and list its units.
   const handleContinue = () => {
-    console.log("[CONTINUE] Clicked. Address:", selectedAddress);
-    console.log("[CHECK ID]", selectedAddress?.id);
-    if (selectedAddress?.gps && selectedAddress.id) {
-      navigate(`/units/${selectedAddress.id}`);
+    if (selectedAddress?.full_address) {
+      navigate(`/units?q=${encodeURIComponent(selectedAddress.full_address)}`);
     } else {
       console.warn("[CONTINUE] Address ni ustrezen ali nima GPS..");
     }
   };
 
+  // --- Simple validation: consider coordinates valid if we have a number lat and (lng or lon) ---
+  // Controls the "Continue" button and whether to show the map preview.
   const isValidGps =
     selectedAddress?.gps &&
     typeof selectedAddress.gps.lat === "number" &&
-    typeof selectedAddress.gps.lng === "number";
-
-  console.log("[STATE] selectedAddress:", selectedAddress);
-  console.log("[STATE] selectedAddress.gps:", selectedAddress?.gps);
-  console.log("[STATE] isValidGps:", isValidGps);
+    (typeof selectedAddress.gps.lng === "number" ||
+      typeof (selectedAddress.gps as any).lon === "number");
 
   return (
     <div style={{ padding: "2rem", maxWidth: "600px", margin: "auto" }}>
+      {/* Logo centered */}
       <div style={{ display: "flex", justifyContent: "center", marginBottom: "1rem" }}>
         <img
           src={`${process.env.PUBLIC_URL}/arvio-logo.png`}
@@ -257,27 +129,17 @@ const StartScreen: React.FC = () => {
           style={{ height: "50px" }}
         />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
-        {['Naslov', 'Pregled', 'Rezultati'].map((step, idx) => (
-          <div key={idx} style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{
-              backgroundColor: idx === 0 ? '#f44336' : '#ccc',
-              color: 'white',
-              borderRadius: '50%',
-              width: '30px',
-              height: '30px',
-              lineHeight: '30px',
-              margin: '0 auto'
-            }}>{idx + 1}</div>
-            <div style={{ marginTop: '0.5rem' }}>{step}</div>
-          </div>
-        ))}
-      </div>
+
+      {/* [NEW] Unified stepper so all screens align the same (active step = 0) */}
+      <Steps active={0} />
+
+      {/* Title + example hint */}
       <h2>Vnesite naslov nepremičnine</h2>
       <p style={{ fontStyle: "italic", color: "#888" }}>
         Primer: Dunajska cesta 51, 1000 Ljubljana
       </p>
 
+      {/* Address input (triggers backend search onChange) */}
       <input
         type="text"
         value={query}
@@ -286,34 +148,49 @@ const StartScreen: React.FC = () => {
         style={{ width: "100%", padding: "0.5rem", marginBottom: "0.5rem" }}
       />
 
-      <div style={{ maxHeight: '200px', overflowY: 'auto', borderRadius: '4px', background: '#f9f9f9' }}>
+      {/* Suggestions dropdown/list (clicking one runs handleSelect) */}
+      <div
+        style={{
+          maxHeight: "200px",
+          overflowY: "auto",
+          borderRadius: "4px",
+          background: "#f9f9f9",
+        }}
+      >
         {suggestions.map((suggestion, index) => (
-          <div key={index} onClick={() => handleSelect(suggestion)} style={{ padding: '10px', cursor: 'pointer' }}>
+          <div
+            key={index}
+            onClick={() => handleSelect(suggestion)}
+            style={{ padding: "10px", cursor: "pointer" }}
+          >
             {suggestion.full_address}
           </div>
         ))}
       </div>
 
+      {/* Map preview (only when Google Maps is loaded and we have valid GPS) */}
       {isLoaded && isValidGps && (
         <div style={{ marginTop: "1rem" }}>
           <GoogleMap
             mapContainerStyle={containerStyle}
             center={{
+              // prefer lng, else use lon (some APIs return "lon")
               lat: selectedAddress!.gps!.lat,
-              lng: selectedAddress!.gps!.lng,
+              lng: selectedAddress!.gps!.lng ?? (selectedAddress!.gps as any).lon!,
             }}
-            zoom={16}
+            zoom={16} // street-level zoom
           >
             <Marker
               position={{
                 lat: selectedAddress!.gps!.lat,
-                lng: selectedAddress!.gps!.lng,
+                lng: selectedAddress!.gps!.lng ?? (selectedAddress!.gps as any).lon!,
               }}
             />
           </GoogleMap>
         </div>
       )}
 
+      {/* Primary action: continue to Units screen (disabled until we have valid GPS) */}
       <button
         disabled={!isValidGps}
         onClick={handleContinue}

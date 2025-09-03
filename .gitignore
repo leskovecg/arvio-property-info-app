@@ -17,6 +17,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+backend/instance/*.db
 
 # =============== Node / Web frontend ===============
 node_modules/

@@ -31,7 +31,6 @@ fun RealEstateInfoAppTheme(
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = colorScheme.primary.toArgb()
-            // Prisilno svetla statusna vrstica
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
         }
     }

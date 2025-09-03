@@ -47,13 +47,16 @@ fun PropertyDetailsScreen(reKey: String, navController: NavController) {
         val lat = unit.gps.lat
         val lng = unit.gps.lng
         val scrollState = rememberScrollState()
-        val valueFormatted = unit.unit?.value?.let { String.format("%,.2f", it) } ?: "ni podatka"
+        val totalValueRaw: Double? = unit.unit?.value ?: unit.value_m2?.let { perM2 ->
+            perM2 * unit.size
+        }
+        val valueFormatted = totalValueRaw?.let { String.format("%,.2f", it) } ?: "ni podatka"
         val valueM2Formatted = unit.value_m2?.let { String.format("%,.2f", it) } ?: "ni podatka"
         val sizeFormatted = String.format("%.1f", unit.size)
         val apartmentNo = unit.re_key.split("-").getOrNull(2)
 
         Column(modifier = Modifier.fillMaxSize()) {
-            // Logo & indikator korakov
+            // Logo + steps
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -98,14 +101,14 @@ fun PropertyDetailsScreen(reKey: String, navController: NavController) {
                 }
             }
 
-            // Vsebina
+            // Content
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(scrollState)
                     .padding(horizontal = 16.dp)
             ) {
-                // Google Street View
+                // Street View
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -161,7 +164,7 @@ fun PropertyDetailsScreen(reKey: String, navController: NavController) {
 
                 Spacer(Modifier.height(16.dp))
 
-                // Nova vrstica: Cena • Velikost • Cena/m2
+                // Price • Size • Price/m²
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center
@@ -183,7 +186,7 @@ fun PropertyDetailsScreen(reKey: String, navController: NavController) {
 
                 Spacer(Modifier.height(16.dp))
 
-                // Gumbi: Deli / Poglej na mapi
+                // Share / Open in Maps
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
@@ -218,6 +221,7 @@ fun PropertyDetailsScreen(reKey: String, navController: NavController) {
                     }
                 }
 
+                // Price card
                 ElevatedCard(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -230,6 +234,7 @@ fun PropertyDetailsScreen(reKey: String, navController: NavController) {
                     }
                 }
 
+                // Extra info
                 unit.unit?.let { details ->
                     ElevatedCard(
                         modifier = Modifier
@@ -248,33 +253,22 @@ fun PropertyDetailsScreen(reKey: String, navController: NavController) {
                 }
             }
 
-            // Gumbi spodaj vedno vidni
+            // Bottom bar: only centered "Nazaj" button
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.Center
             ) {
                 Button(
                     onClick = { navController.popBackStack() },
-                    modifier = Modifier.weight(1f).height(50.dp),
+                    modifier = Modifier
+                        .width(220.dp)
+                        .height(50.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray)
                 ) {
                     Text("Nazaj", color = Color.Black)
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Button(
-                    onClick = {
-                        Toast.makeText(context, "Analitika še ni implementirana", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier.weight(1f).height(50.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE86F5C))
-                ) {
-                    Text("Statistika", color = Color.White)
                 }
             }
         }

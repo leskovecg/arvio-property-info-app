@@ -30,6 +30,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.*
 
+/**
+ * Helper: geocode a free-form address string into a LatLng using the
+ * platform Geocoder. Returns null if the address cannot be resolved.
+ */
 fun geocodeAddress(context: Context, address: String): LatLng? {
     return try {
         val geocoder = Geocoder(context, Locale.getDefault())
@@ -46,24 +50,29 @@ fun geocodeAddress(context: Context, address: String): LatLng? {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(navController: NavController) {
-    var query by remember { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<AddressResult>>(emptyList()) }
-    var selected by remember { mutableStateOf<AddressResult?>(null) }
-    var selectedLatLng by remember { mutableStateOf<LatLng?>(null) }
+    // UI state
+    var query by remember { mutableStateOf("") }                           // current search text
+    var results by remember { mutableStateOf<List<AddressResult>>(emptyList()) } // suggestions list
+    var selected by remember { mutableStateOf<AddressResult?>(null) }      // chosen suggestion
+    var selectedLatLng by remember { mutableStateOf<LatLng?>(null) }       // geocoded position
+
+    // Map state
     val cameraPositionState = rememberCameraPositionState()
+
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val currentStep = 1
+    val currentStep = 1 // stepper: this screen is step 1
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                // allow the whole content to scroll and keep room for the bottom button
                 .verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 72.dp), // prostor za gumb
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 72.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Logo
+            // Brand logo
             Image(
                 painter = painterResource(id = R.drawable.arvio_logo),
                 contentDescription = "Arvio Logo",
@@ -72,7 +81,7 @@ fun SearchScreen(navController: NavController) {
                     .align(Alignment.CenterHorizontally)
             )
 
-            // Koraki
+            // Stepper header (1..3), highlights current step
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
@@ -108,25 +117,25 @@ fun SearchScreen(navController: NavController) {
                 }
             }
 
-            // Naslov + primer
+            // Title + example hint
             Text(
                 "Vnesite naslov nepremičnine",
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
-
             Text(
                 "Primer: Dunajska cesta 51, 1000 Ljubljana",
                 style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
 
-            // Iskalno polje
+            // Search input; triggers backend address suggestions after 3+ chars
             OutlinedTextField(
                 value = query,
                 onValueChange = {
                     query = it
                     if (it.length >= 3) {
+                        // Calls your backend proxy (searchAddress) and updates the suggestions list
                         searchAddress(it) { res -> results = res }
                     }
                 },
@@ -138,7 +147,7 @@ fun SearchScreen(navController: NavController) {
                 singleLine = true
             )
 
-            // Zadetek (dropdown)
+            // Suggestions dropdown (as a short list). Tap to pick one.
             LazyColumn(modifier = Modifier.heightIn(max = 150.dp)) {
                 items(results) { addr ->
                     ElevatedCard(
@@ -146,9 +155,11 @@ fun SearchScreen(navController: NavController) {
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
                             .clickable {
+                                // Save selection both locally and globally (for next screen)
                                 selected = addr
                                 globalSelectedAddress = addr
 
+                                // Geocode selected address and remember the LatLng for the map
                                 coroutineScope.launch {
                                     val latLng = withContext(Dispatchers.IO) {
                                         geocodeAddress(context, addr.fullAddress)
@@ -164,7 +175,7 @@ fun SearchScreen(navController: NavController) {
                 }
             }
 
-            // Zemljevid
+            // Map preview showing a marker at the selected address
             selected?.let {
                 Card(
                     modifier = Modifier
@@ -186,14 +197,14 @@ fun SearchScreen(navController: NavController) {
             }
         }
 
-        // Premik kamere
+        // When geocoding completes, move the camera to the result
         LaunchedEffect(selectedLatLng) {
             selectedLatLng?.let {
                 cameraPositionState.position = CameraPosition.fromLatLngZoom(it, 14f)
             }
         }
 
-        // Gumb "Nadaljuj"
+        // Sticky bottom primary action: goes to the list of units for the selected address
         Button(
             onClick = {
                 if (selected != null) {

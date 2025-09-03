@@ -30,23 +30,38 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
+/**
+ * AddressDetailsScreen
+ *
+ * - Reads the globally selected address (set on the previous screen).
+ * - Geocodes the full address to LatLng and recenters the Google Map.
+ * - Fetches details for all units (RE keys) under this address concurrently.
+ * - Displays a list of unit cards (selectable), and a map centered on the address.
+ * - Bottom actions: Back, Continue (enabled when a unit is selected).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddressDetailsScreen(navController: NavController) {
+    // Address object passed from previous step; if missing, show a simple error.
     val address = globalSelectedAddress
     if (address == null) {
-        Text("❌ Ni izbranega naslova")
+        Text("Ni izbranega naslova")
         return
     }
 
     val context = LocalContext.current
+    // Google Maps compose state for camera position.
     val cameraPositionState = rememberCameraPositionState()
+    // Currently selected unit and loaded units for this address.
     var selectedUnit by remember { mutableStateOf<Property?>(null) }
     var units by remember { mutableStateOf<List<Property>>(emptyList()) }
+    // Lat/Lng for the selected address (result of geocoding).
     var selectedLatLng by remember { mutableStateOf<LatLng?>(null) }
 
+    // Geocode address once and move camera to it.
     LaunchedEffect(address.fullAddress) {
         val latLng = withContext(Dispatchers.IO) {
+            // Uses platform geocoder; returns LatLng? for the address string.
             geocodeAddress(context, address.fullAddress)
         }
         selectedLatLng = latLng
@@ -55,13 +70,16 @@ fun AddressDetailsScreen(navController: NavController) {
         }
     }
 
+    // Fetch unit details for all RE keys concurrently and store them in 'units'.
     LaunchedEffect(address.units) {
         if (address.units.isNotEmpty()) {
             val reKeys = address.units
             val collected = mutableListOf<Property>()
 
+            // Fire one fetch per reKey; await all before updating state.
             reKeys.map { reKey ->
                 async {
+                    // Bridge the callback-style API (fetchUnitDetails) into a suspend call.
                     suspendCancellableCoroutine<Unit> { cont ->
                         fetchUnitDetails(reKey) { property ->
                             property?.let { collected.add(it) }
@@ -76,7 +94,7 @@ fun AddressDetailsScreen(navController: NavController) {
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Logo & Step indikator
+        // Header: logo + step indicator (Step 2 is active on this screen).
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -96,6 +114,7 @@ fun AddressDetailsScreen(navController: NavController) {
             ) {
                 for (i in 1..3) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        // Round step dot; step 2 highlighted
                         Box(
                             modifier = Modifier
                                 .size(24.dp)
@@ -121,17 +140,20 @@ fun AddressDetailsScreen(navController: NavController) {
             }
         }
 
+        // Main content column: address label, units list, map block.
         Column(
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Address title and the actual full address
             Column {
                 Text("Naslov", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
                 Text(address.fullAddress, style = MaterialTheme.typography.titleSmall)
             }
 
+            // Units list (cards). Selecting a card sets 'selectedUnit'.
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(units) { unit ->
                     val label = unit.unit?.unit_type ?: unit.re_type
@@ -144,12 +166,14 @@ fun AddressDetailsScreen(navController: NavController) {
                             .fillMaxWidth()
                             .padding(vertical = 4.dp)
                             .clickable { selectedUnit = unit },
+                        // Highlight the selected card with a subtle background.
                         colors = if (selectedUnit?.re_key == unit.re_key)
                             CardDefaults.elevatedCardColors(containerColor = Color(0xFFFBE9E7))
                         else
                             CardDefaults.elevatedCardColors()
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
+                            // Card header: unit label + RE-key tags (3 parts)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -180,6 +204,7 @@ fun AddressDetailsScreen(navController: NavController) {
 
                             Spacer(modifier = Modifier.height(8.dp))
 
+                            // Basic meta: floor and size
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 modifier = Modifier.fillMaxWidth()
@@ -192,6 +217,7 @@ fun AddressDetailsScreen(navController: NavController) {
                 }
             }
 
+            // Map section showing a marker at the geocoded address.
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -213,6 +239,7 @@ fun AddressDetailsScreen(navController: NavController) {
             }
         }
 
+        // Bottom action bar: Back and Continue (Continue is disabled until a unit is chosen).
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -233,6 +260,7 @@ fun AddressDetailsScreen(navController: NavController) {
             Button(
                 onClick = {
                     selectedUnit?.let {
+                        // Navigate to the details screen for the chosen unit.
                         navController.navigate("propertyDetails/${it.re_key}")
                     }
                 },

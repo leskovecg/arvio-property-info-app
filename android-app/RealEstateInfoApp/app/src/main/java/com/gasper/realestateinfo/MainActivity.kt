@@ -21,7 +21,9 @@ import retrofit2.Response
 import com.gasper.realestateinfo.ui.theme.RealEstateInfoAppTheme
 import androidx.navigation.navArgument
 
-// Globalna spremenljivka – se prenese med screene
+// Global holder for the address the user picked on the search screen.
+// It is read by the next screen (AddressDetailsScreen) without having to
+// serialize the entire object through the navigation arguments.
 var globalSelectedAddress: AddressResult? = null
 
 class MainActivity : ComponentActivity() {
@@ -29,22 +31,30 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
+            // App theme + material baseline
             RealEstateInfoAppTheme {
                 val navController = rememberNavController()
+
+                // Root container for navigation content
                 Surface(modifier = Modifier.fillMaxSize()) {
+                    // Compose Navigation graph for the app
                     NavHost(navController = navController, startDestination = "search") {
+                        // Step 1: search & pick an address
                         composable("search") {
                             SearchScreen(navController)
                         }
+                        // Step 2: address details (list of units)
                         composable("addressDetails") {
                             AddressDetailsScreen(navController)
                         }
+                        // Step 3: property details for a specific reKey
                         composable(
                             "propertyDetails/{reKey}",
                             arguments = listOf(navArgument("reKey") {
                                 type = NavType.StringType
                             })
                         ) { backStackEntry ->
+                            // Extract route parameter and pass it to the details screen
                             val reKey = backStackEntry.arguments?.getString("reKey") ?: ""
                             PropertyDetailsScreen(reKey = reKey, navController = navController)
                         }
@@ -53,11 +63,12 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        Log.d("NAVIGATION", "✅ MainActivity zagnana, inicializiran NavHost")
     }
 }
 
-// 🔍 Iskanje naslova (Retrofit klic)
+// Retrofit-backed address search wrapper used by SearchScreen.
+// Encodes the query, calls the backend API, and returns results via callback.
+// On any error, it returns an empty list to keep the UI resilient.
 fun searchAddress(query: String, onResult: (List<AddressResult>) -> Unit) {
     val encodedQuery = query.trim().replace("\\s+".toRegex(), "%20")
     val call = RetrofitInstance.api.searchAddress(encodedQuery)
