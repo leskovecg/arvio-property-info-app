@@ -54,3 +54,9 @@ android-app/**/*.jks
 android-app/**/*.keystore
 android-app/**/google-services.json
 android-app/**/firebase-service.json
+
+android-app/RealEstateInfoApp/app/src/main/res/values/google_maps_key.xml
+.env
+local.properties
+*.keystore
+**/debug.keystore
